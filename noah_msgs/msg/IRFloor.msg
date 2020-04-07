@@ -1,0 +1,2 @@
+bool front_sensor
+bool back_sensor

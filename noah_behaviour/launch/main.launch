@@ -1,0 +1,8 @@
+<launch>
+    <arg name="port_name" default="/dev/ttyS0" />
+
+    <!-- Spawn the service that communicates with the robot-->
+    <param name="/uart_comms_node/port_name"    value="$(arg port_name)" />
+    <node name="uart_comms_node" pkg="noah_drivers" type="noah_drivers_uart_comms_node" output="screen" required="true" />
+
+</launch>
