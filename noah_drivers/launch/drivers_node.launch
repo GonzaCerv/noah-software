@@ -1,0 +1,4 @@
+<!-- This node communicates the PCB with the raspberry pi -->
+<launch>
+    <node name="drivers_node" pkg="noah_drivers" type="noah_drivers_node" output="screen" required="true"/>
+</launch>

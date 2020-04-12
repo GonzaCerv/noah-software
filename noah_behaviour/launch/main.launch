@@ -1,8 +1,21 @@
+<?xml version="1.0"?>
 <launch>
-    <arg name="port_name" default="/dev/ttyS0" />
+    <rosparam file="$(find noah_behaviour)/config/environment.yaml" command="load" />
 
-    <!-- Spawn the service that communicates with the robot-->
-    <param name="/uart_comms_node/port_name"    value="$(arg port_name)" />
-    <node name="uart_comms_node" pkg="noah_drivers" type="noah_drivers_uart_comms_node" output="screen" required="true" />
+    <!-- Launch the node for communication with PCB -->
+    <include file="$(find noah_drivers)/launch/drivers_node.launch"/>
+
+    <node pkg="differential_drive" type="twist_to_motors.py" name="twist_to_motors" output="screen">
+        <remap from="lwheel_vtarget" to="/motor_left_pwm"/>
+        <remap from="rwheel_vtarget" to="/motor_right_pwm"/>
+        <rosparam param="base_width">0.16</rosparam>
+        <rosparam param="rate">25</rosparam>
+    </node>
+
+    <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
+        <remap from="cmd_vel" to="/twist"/>
+        <rosparam param="speed">0.3</rosparam>
+        <rosparam param="turn">0.8</rosparam>
+    </node>
 
 </launch>

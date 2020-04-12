@@ -1,4 +1,0 @@
-<launch>
-    <test test-name="uart_tests" pkg="noah_drivers" type="uart_tests" time-limit="20.0" />
-</launch>
-  

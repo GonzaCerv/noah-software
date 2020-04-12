@@ -7,7 +7,7 @@
   <maintainer email="cervetti.g@gmail.com">Gonzalo Cervetti</maintainer>
 
   <license>GPLv3</license>
-
+  
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>roscpp</build_depend>
