@@ -19,14 +19,14 @@
 #include "ros/console.h"
 
 // Bossa Nova
-#include <noah_drivers/PCBCommsNode.hpp>
+#include <noah_drivers/DriversNode.hpp>
 
-using noah_drivers::PCBCommsNode;
+using noah_drivers::DriversNode;
 
 int main(int argc, char **argv) {
     try {
         ros::init(argc, argv, "uart_comms_node");
-        PCBCommsNode pcb_comms_node;
+        DriversNode pcb_comms_node;
         pcb_comms_node.run();
         return EXIT_SUCCESS;
     } catch (std::exception &e) {

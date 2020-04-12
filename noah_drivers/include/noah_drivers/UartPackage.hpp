@@ -12,6 +12,7 @@
 
 // C++ Standard libraries
 #include <stdint.h>
+
 #include <vector>
 
 namespace noah_drivers {
@@ -20,23 +21,8 @@ namespace noah_drivers {
 enum class UartCommand {
     ECHO_CMD = 0x00,
     OFF = 0x01,
-    LED_AQUIRE = 0x02,
-    LED_RED_ON = 0x03,
-    LED_RED_OFF = 0x04,
-    LED_GREEN_ON = 0x05,
-    LED_GREEN_OFF = 0x06,
-    LED_RELEASE = 0x07,
-    BUTTON_LONG_PRESS = 0x08,
-    BUTTON_SHORT_PRESS = 0x09,
-    DETECT_IR_FRONT = 0x0A,
-    DETECT_IR_BACK = 0x0B,
-    SERVO_MOVE = 0x10,
-    BAT = 0x40,
-    MOTOR_KP = 0x41,
-    MOTOR_KI = 0x42,
-    MOTOR_KD = 0x43,
-    MOVE = 0x80,
-    POSE = 0x81,
+    ENCODER_TICKS = 0x40,
+    PWM_DUTY = 0x80,
     EMPTY = 0xFE,
     ERROR = 0xFF,
 };
@@ -50,8 +36,33 @@ class UartPackage {
 
     ~UartPackage(){};
 
+    /// @brief Sets the command of the package.
+    void setCommand(UartCommand command) { command_ = command; }
+
     /// @brief Converts the commands of UartCommand in the corresponding value in uint8_t.
-    uint8_t getCommandValue() { return static_cast<uint8_t>(command_); }
+    UartCommand getCommand() const { return command_; }
+
+    /// @brief Sets the data of the package.
+    void setData(std::vector<uint8_t> data) { parameters_ = data; }
+
+    /// @brief Converts the commands of UartCommand in the corresponding value in uint8_t.
+    std::vector<uint8_t> getData() const { return parameters_; }
+
+    /// @brief Operator for accessing the arguments
+    uint8_t& operator[](uint8_t idx) {
+        if (idx > parameters_.size()) {
+            throw std::overflow_error("Accessing element outside limits");
+        }
+        return parameters_[idx];
+    }
+
+    /// @brief Operator for accessing the arguments
+    uint8_t operator[](uint8_t idx) const {
+        if (idx > parameters_.size()) {
+            throw std::overflow_error("Accessing element outside limits");
+        }
+        return parameters_[idx];
+    }
 
     /// @brief Returns the start value for each package.
     static uint8_t startPackage() { return START_PACKAGE; };
@@ -71,53 +82,11 @@ class UartPackage {
             case (static_cast<uint8_t>(UartCommand::OFF)):
                 return UartCommand::OFF;
                 break;
-            case (static_cast<uint8_t>(UartCommand::LED_AQUIRE)):
-                return UartCommand::LED_AQUIRE;
+            case (static_cast<uint8_t>(UartCommand::PWM_DUTY)):
+                return UartCommand::PWM_DUTY;
                 break;
-            case (static_cast<uint8_t>(UartCommand::LED_RED_ON)):
-                return UartCommand::LED_RED_ON;
-                break;
-            case (static_cast<uint8_t>(UartCommand::LED_RED_OFF)):
-                return UartCommand::LED_RED_OFF;
-                break;
-            case (static_cast<uint8_t>(UartCommand::LED_GREEN_ON)):
-                return UartCommand::LED_GREEN_ON;
-                break;
-            case (static_cast<uint8_t>(UartCommand::LED_GREEN_OFF)):
-                return UartCommand::LED_GREEN_OFF;
-                break;
-            case (static_cast<uint8_t>(UartCommand::LED_RELEASE)):
-                return UartCommand::LED_RELEASE;
-                break;
-            case (static_cast<uint8_t>(UartCommand::BUTTON_LONG_PRESS)):
-                return UartCommand::BUTTON_LONG_PRESS;
-                break;
-            case (static_cast<uint8_t>(UartCommand::BUTTON_SHORT_PRESS)):
-                return UartCommand::BUTTON_SHORT_PRESS;
-                break;
-            case (static_cast<uint8_t>(UartCommand::SERVO_MOVE)):
-                return UartCommand::SERVO_MOVE;
-                break;
-            case (static_cast<uint8_t>(UartCommand::DETECT_IR_BACK)):
-                return UartCommand::DETECT_IR_BACK;
-                break;
-            case (static_cast<uint8_t>(UartCommand::BAT)):
-                return UartCommand::BAT;
-                break;
-            case (static_cast<uint8_t>(UartCommand::MOTOR_KP)):
-                return UartCommand::MOTOR_KP;
-                break;
-            case (static_cast<uint8_t>(UartCommand::MOTOR_KI)):
-                return UartCommand::MOTOR_KI;
-                break;
-            case (static_cast<uint8_t>(UartCommand::MOTOR_KD)):
-                return UartCommand::MOTOR_KD;
-                break;
-            case (static_cast<uint8_t>(UartCommand::MOVE)):
-                return UartCommand::MOVE;
-                break;
-            case (static_cast<uint8_t>(UartCommand::POSE)):
-                return UartCommand::POSE;
+            case (static_cast<uint8_t>(UartCommand::ENCODER_TICKS)):
+                return UartCommand::ENCODER_TICKS;
                 break;
             default:
                 return UartCommand::ERROR;
@@ -125,13 +94,13 @@ class UartPackage {
         }
     }
 
+   private:
     /// @brief Command to be executed.
     UartCommand command_;
 
     /// @brief Parameters that comes with the command.
     std::vector<uint8_t> parameters_;
 
-    private:
     /// @brief Start and stop package indicator.
     static const uint8_t START_PACKAGE = 0xA0;
     static const uint8_t STOP_PACKAGE = 0xB0;

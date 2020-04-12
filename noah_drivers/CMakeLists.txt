@@ -15,6 +15,16 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
 )
 
+find_library (serial_LIB 
+  NAMES serial 
+  HINTS "/usr/local/lib/")
+
+if(serial_LIB)
+  message(STATUS "Looking for libserial - found")
+else()     
+  message(STATUS "Looking for libserial - not found")
+endif()
+
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
@@ -42,10 +52,8 @@ catkin_package(
     noah_msgs
   LIBRARIES
     ${PROJECT_NAME}_uart_comms_node 
-    ${PROJECT_NAME}_uart
   DEPENDS 
 )
-
 
 ###########
 ## Build ##
@@ -53,13 +61,13 @@ catkin_package(
 
 ## C++ executables ##
 add_executable(${PROJECT_NAME}_uart_comms_node 
-  src/PackageManager.cpp
-  src/PCBCommsNode.cpp
-  src/PCBCommsNodeRunner.cpp)
+  src/PCBBridgeManager.cpp
+  src/DriversNode.cpp
+  src/DriversNodeRunner.cpp)
 
 target_link_libraries(${PROJECT_NAME}_uart_comms_node
   ${catkin_LIBRARIES}
-  ${PROJECT_NAME}_uart
+  ${serial_LIB}
 )
 add_dependencies(${PROJECT_NAME}_uart_comms_node
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
@@ -67,17 +75,6 @@ add_dependencies(${PROJECT_NAME}_uart_comms_node
 )
 
 ## C++ libraries ##
-
-add_library(${PROJECT_NAME}_uart
-  src/Uart.cpp
-)
-target_link_libraries(${PROJECT_NAME}_uart
-  ${catkin_LIBRARIES}
-)
-add_dependencies(${PROJECT_NAME}_uart
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-)
 
 #############
 ## Testing ##
@@ -119,20 +116,13 @@ if(CATKIN_ENABLE_TESTING)
   set(GTEST_LIBRARIES ${PROJECT_NAME}_gmock)
   ###### END Enable Gmock ##########
 
-
-  add_rostest_gtest(uart_tests test/uart_tests.test test/uart_tests.cpp)
-  target_link_libraries(uart_tests
-    ${catkin_LIBRARIES} 
-    ${PROJECT_NAME}_uart 
-    ${GTEST_LIBRARIES}) 
-
-  add_rostest_gtest(package_manager_tests test/package_manager_tests.test 
-    test/package_manager_tests.cpp
-    src/PackageManager.cpp)
-  target_link_libraries(package_manager_tests 
+  add_rostest_gtest(pcb_bridge_manager_test test/pcb_bridge_manager_test.test 
+    test/pcb_bridge_manager_test.cpp
+    src/PCBBridgeManager.cpp)
+  target_link_libraries(pcb_bridge_manager_test 
     ${catkin_LIBRARIES}
     ${GTEST_LIBRARIES}
-    ${PROJECT_NAME}_uart ) 
+    ${serial_LIB}) 
 
 endif()
 
@@ -143,7 +133,6 @@ endif()
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
  install(TARGETS 
-    ${PROJECT_NAME}_uart
     ${PROJECT_NAME}_uart_comms_node 
     
     ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

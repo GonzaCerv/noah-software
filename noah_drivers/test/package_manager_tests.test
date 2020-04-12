@@ -1,4 +1,0 @@
-<launch>
-    <test test-name="package_manager_tests" pkg="noah_drivers" type="package_manager_tests" time-limit="20.0" />
-</launch>
-  

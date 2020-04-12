@@ -1,0 +1,4 @@
+<launch>
+    <test test-name="pcb_bridge_manager_test" pkg="noah_drivers" type="pcb_bridge_manager_test" time-limit="10.0" />
+</launch>
+  
