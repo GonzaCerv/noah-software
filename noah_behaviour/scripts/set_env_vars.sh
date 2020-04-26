@@ -14,6 +14,7 @@ export TICK_METERS=3653
 export BASE_WIDTH=0.2
 
 # Motor Drive configuration
+export MAX_SPEED_METER_SEC=0.5
 export PID_MIN=10.0
 export PID_MAX=700.0
 export PID_P=50.0

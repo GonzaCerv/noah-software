@@ -44,7 +44,7 @@ class PCBBridgeManager {
 
     /**
      * @brief Checks if there is new packages to process
-     * 
+     *
      * @return List of packages to be processed
      */
     std::shared_ptr<UartPackage> check();
@@ -64,7 +64,7 @@ class PCBBridgeManager {
 
     /**
      * @brief Decode all the packages found in the last incomming UART communication.
-     * 
+     *
      * @param new_data raw data that comes from USART.
      * @return new package to be processed. If there is no new package, it
      * returns a package with an EMPTY command.

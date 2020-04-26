@@ -51,8 +51,9 @@
         <rosparam subst_value="true" param="base_width">$(env BASE_WIDTH)</rosparam>
     </node>
 
-    <!-- <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="steering">
-        <param name="default_topic" value="/twist"/>
-    </node> -->
-
+    <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
+        <param name="scale_linear" value="0.3"/>
+        <param name="scale_angular" value="0.3"/>
+        <remap from="cmd_vel" to="twist"/>
+    </node>
 </launch>

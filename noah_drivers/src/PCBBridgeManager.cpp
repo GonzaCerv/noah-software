@@ -18,8 +18,8 @@
 #include "noah_drivers/PCBBridgeManager.hpp"
 
 namespace noah_drivers {
-PCBBridgeManager::PCBBridgeManager(const std::string &port_name, const std::chrono::milliseconds &check_interval) :
-    check_interval_(check_interval){
+PCBBridgeManager::PCBBridgeManager(const std::string &port_name, const std::chrono::milliseconds &check_interval)
+    : check_interval_(check_interval) {
     if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {
         ros::console::notifyLoggerLevelsChanged();
     }
@@ -59,7 +59,7 @@ PCBBridgeManager::~PCBBridgeManager() {
 std::shared_ptr<UartPackage> PCBBridgeManager::check() {
     std::lock_guard<std::mutex> lock(mutex_);
     std::shared_ptr<UartPackage> pkg;
-    if (!packages_.empty()){
+    if (!packages_.empty()) {
         // The front is sotred in new_pkg so the reference of the object is not deleted by 'pop_front'
         auto new_pkg = packages_.front();
         pkg = std::make_shared<UartPackage>(new_pkg);
@@ -76,7 +76,7 @@ bool PCBBridgeManager::sendPackage(const UartPackage &package) {
         std::vector<uint8_t> buffer;
         buffer.emplace_back(UartPackage::startPackage());
         buffer.emplace_back(UartPackage::commandToValue(package.getCommand()));
-        for(auto param : package.getData()){
+        for (auto param : package.getData()) {
             buffer.emplace_back(param);
         }
         buffer.emplace_back(UartPackage::stopPackage());
@@ -98,7 +98,7 @@ std::list<UartPackage> PCBBridgeManager::decodePackage(const std::vector<uint8_t
     UartPackage current_package;
 
     while (it != new_data.end()) {
-        // Search a valid start package to start processing. 
+        // Search a valid start package to start processing.
         // If there is no start package, then iterate and exit the while.
         it = std::find(it, new_data.end(), UartPackage::startPackage());
         if (it == new_data.end()) continue;
@@ -134,17 +134,16 @@ void PCBBridgeManager::incommingPackagesThread() {
     std::vector<uint8_t> incomming_data;
     do {
         if (serial_port_.IsDataAvailable()) {
-            try{
-                serial_port_.Read(incomming_data, 0 , static_cast<std::size_t>(check_interval_.count()));
+            try {
+                serial_port_.Read(incomming_data, 0, static_cast<std::size_t>(check_interval_.count()));
+            } catch (...) {
             }
-            catch(...) {}
             // Append the packages found into the current packages list.
-            if(!incomming_data.empty()){
-                packages_.splice(packages_.end(),decodePackage(incomming_data));
+            if (!incomming_data.empty()) {
+                packages_.splice(packages_.end(), decodePackage(incomming_data));
             }
-            
-        }
-        else{
+
+        } else {
             cv_.wait_for(lock, check_interval_);
         }
     } while (!halt_);

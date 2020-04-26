@@ -16,6 +16,7 @@
 
 // ROS
 #include <ros/ros.h>
+
 #include "ros/console.h"
 
 // Bossa Nova

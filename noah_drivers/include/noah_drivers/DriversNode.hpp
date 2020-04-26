@@ -54,7 +54,7 @@ class DriversNode {
      * @param package_list commands to be processed.
      * @return true when process was successfull, false when not.
      */
-    void executePackageCallaback(const UartPackage& package_list);
+    void executePackageCallaback(const UartPackage &package_list);
 
     /**
      * @brief Callback for the battery service.
@@ -113,6 +113,5 @@ class DriversNode {
     double max_duty_;
 
     int update_rate_;
-
 };
 }  // namespace noah_drivers
