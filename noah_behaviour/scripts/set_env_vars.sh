@@ -6,7 +6,7 @@
 #                all the environment variables for the project
 
 # PCB communication
-export PCB_UART_PORT=/dev/ttyS0
+export PCB_UART_PORT=/dev/pts/3 
 export PCB_UART_UPDATE_RATE_HZ=20
 
 # Physical characteristics of the robot
@@ -20,3 +20,5 @@ export PID_MAX=700.0
 export PID_P=50.0
 export PID_I=200.0
 export PID_D=2.0
+export ENCODER_MIN=-32768
+export ENCODER_MAX=32767

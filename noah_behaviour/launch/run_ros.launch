@@ -32,7 +32,7 @@
 
     <node pkg="differential_drive" type="pid_velocity.py" name="motor_right_pid_velocity">
         <remap from="wheel" to="/uart_comms_node/motor_right_tick"/>
-        <remap from="motor_cmd" to="/uart_comms_node/motor_left_pwm"/>
+        <remap from="motor_cmd" to="/uart_comms_node/motor_right_pwm"/>
         <remap from="wheel_vtarget" to="lwheel_vtarget"/>
         <remap from="wheel_vel" to="motor_right_current_speed"/>
         <rosparam subst_value="true">
@@ -44,11 +44,14 @@
             rate: $(env PCB_UART_UPDATE_RATE_HZ)
             timeout_ticks: 10
             rolling_pts: 5
+            encoder_min: $(env ENCODER_MIN)
+            encoder_max: $(env ENCODER_MAX)
         </rosparam>
     </node>
   
     <node pkg="differential_drive" type="twist_to_motors.py" name="twist_to_motors" output="screen">
         <rosparam subst_value="true" param="base_width">$(env BASE_WIDTH)</rosparam>
+        <rosparam subst_value="true" param="rate">$(env PCB_UART_UPDATE_RATE_HZ)</rosparam>
     </node>
 
     <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
