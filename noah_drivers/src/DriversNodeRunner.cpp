@@ -9,29 +9,25 @@
  *
  */
 
-// C++ Standard Library
-#include <cstdlib>
-#include <exception>
+// Standard libraries
 #include <iostream>
 
-// ROS
-#include <ros/ros.h>
+// ROS libraries
+#include "ros/ros.h"
+#include "std_msgs/String.h"
 
-#include "ros/console.h"
-
-// Bossa Nova
+// Noah libraries
 #include <noah_drivers/DriversNode.hpp>
 
 using noah_drivers::DriversNode;
 
-int main(int argc, char **argv) {
-    try {
-        ros::init(argc, argv, "uart_comms_node");
-        DriversNode pcb_comms_node;
-        pcb_comms_node.run();
-        return EXIT_SUCCESS;
-    } catch (std::exception &e) {
-        std::cerr << "Exception thrown!: " << e.what() << std::endl;
-    }
-    return EXIT_FAILURE;
+int main(int argc, char** argv) {
+  try {
+    ros::init(argc, argv, "noah_drivers");
+    DriversNode driver_node;
+    return driver_node.run();
+  } catch (std::exception& e) {
+    std::cerr << "Exception thrown!: " << e.what() << std::endl;
+  }
+  return EXIT_FAILURE;
 }

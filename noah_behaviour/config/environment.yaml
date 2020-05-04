@@ -1,0 +1,21 @@
+#information about the robot
+
+# PCB communication
+PCB_UART_PORT: "/dev/ttyACM0"
+PCB_UART_UPDATE_RATE_HZ: 20
+
+# Physical characteristics of the robot
+# export TICK_METERS=3653
+ticks_meter: 3653
+BASE_WIDTH: 0.2
+
+# Motor Drive configuration
+MAX_SPEED_METER_SEC: 0.5
+MIN_SPEED_METER_SEC: 0.1
+PID_MIN: 10.0
+PID_MAX: 700.0
+PID_P: 50.0
+PID_I: 200.0
+PID_D: 2.0
+ENCODER_MIN: -32768
+ENCODER_MAX: 32767

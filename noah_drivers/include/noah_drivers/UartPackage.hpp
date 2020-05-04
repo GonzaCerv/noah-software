@@ -20,9 +20,11 @@ namespace noah_drivers {
 // Enumeration that stores all the possible commands comming from UART.
 enum class UartCommand {
     ECHO_CMD = 0x00,
-    OFF = 0x01,
-    ENCODER_TICKS = 0x40,
-    PWM_DUTY = 0x80,
+    OFF = 0x02,
+    LEFT_ENCODER_TICKS = 0x20,
+    RIGHT_ENCODER_TICKS = 0x21,
+    LEFT_SPEED = 0x40,
+    RIGHT_SPEED = 0x41,
     EMPTY = 0xFE,
     ERROR = 0xFF,
 };
@@ -31,8 +33,8 @@ class UartPackage {
    public:
     // Constructors
     UartPackage(const UartCommand& command = UartCommand::EMPTY,
-                std::vector<uint8_t> parameters = std::vector<uint8_t>())
-        : command_(command), parameters_(parameters) {}
+                const std::vector<uint8_t>& parameters = std::vector<uint8_t>())
+        : command_{command}, parameters_{parameters}  {}
 
     ~UartPackage(){};
 
@@ -82,11 +84,17 @@ class UartPackage {
             case (static_cast<uint8_t>(UartCommand::OFF)):
                 return UartCommand::OFF;
                 break;
-            case (static_cast<uint8_t>(UartCommand::PWM_DUTY)):
-                return UartCommand::PWM_DUTY;
+            case (static_cast<uint8_t>(UartCommand::LEFT_ENCODER_TICKS)):
+                return UartCommand::LEFT_ENCODER_TICKS;
                 break;
-            case (static_cast<uint8_t>(UartCommand::ENCODER_TICKS)):
-                return UartCommand::ENCODER_TICKS;
+            case (static_cast<uint8_t>(UartCommand::RIGHT_ENCODER_TICKS)):
+                return UartCommand::RIGHT_ENCODER_TICKS;
+                break;
+            case (static_cast<uint8_t>(UartCommand::LEFT_SPEED)):
+                return UartCommand::LEFT_SPEED;
+                break;
+            case (static_cast<uint8_t>(UartCommand::RIGHT_SPEED)):
+                return UartCommand::RIGHT_SPEED;
                 break;
             default:
                 return UartCommand::ERROR;

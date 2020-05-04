@@ -1,15 +1,4 @@
 <!-- This node communicates the PCB with the raspberry pi -->
 <launch>
-    <!-- Port for communication -->
-    <arg name="uart_port_name" default="/dev/ttyACM0" />
-    <arg name="uart_update_rate" default="50.0" />
-    <arg name="pid_min" default="10.0" />
-    <arg name="pid_max" default="700.0" />
-
-    <param name="/uart_comms_node/port_name" value="$(arg uart_port_name)" />
-    <param name="/uart_comms_node/update_rate" value="$(arg uart_update_rate)" />
-    <param name="/uart_comms_node/max_duty" value="$(arg pid_max)" />
-    <param name="/uart_comms_node/min_duty" value="$(arg pid_min)" />
-
-    <node name="uart_comms_node" pkg="noah_drivers" type="noah_drivers_uart_comms_node" output="screen" required="true" launch-prefix="sudo"/>
+    <node name="drivers_node" pkg="noah_drivers" type="noah_drivers_node" output="screen" required="true"/>
 </launch>

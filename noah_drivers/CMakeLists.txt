@@ -32,6 +32,27 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+
+################################################
+## Declare ROS dynamic reconfigure parameters ##
+################################################
+
+## To declare and build dynamic reconfigure parameters within this
+## package, follow these steps:
+## * In the file package.xml:
+##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
+## * In this file (CMakeLists.txt):
+##   * add "dynamic_reconfigure" to
+##     find_package(catkin REQUIRED COMPONENTS ...)
+##   * uncomment the "generate_dynamic_reconfigure_options" section below
+##     and list every .cfg file to be processed
+
+## Generate dynamic reconfigure parameters in the 'cfg' folder
+# generate_dynamic_reconfigure_options(
+#   cfg/DynReconf1.cfg
+#   cfg/DynReconf2.cfg
+# )
+
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -45,13 +66,12 @@ catkin_package(
   INCLUDE_DIRS 
     include
   CATKIN_DEPENDS 
-    geometry_msgs
-    roscpp 
-    rospy 
-    std_msgs
-    noah_msgs
-  LIBRARIES
-    ${PROJECT_NAME}_uart_comms_node 
+  geometry_msgs
+  roscpp 
+  rospy 
+  std_msgs
+  geometry_msgs
+  LIBRARIES 
   DEPENDS 
 )
 
@@ -59,83 +79,59 @@ catkin_package(
 ## Build ##
 ###########
 
-## C++ executables ##
-add_executable(${PROJECT_NAME}_uart_comms_node 
-  src/PCBBridgeManager.cpp
+add_executable(${PROJECT_NAME}_node 
+  src/DriversNodeRunner.cpp
   src/DriversNode.cpp
-  src/DriversNodeRunner.cpp)
-
-target_link_libraries(${PROJECT_NAME}_uart_comms_node
+  src/PCBBridgeManager.cpp
+)
+target_link_libraries(${PROJECT_NAME}_node  
   ${catkin_LIBRARIES}
   ${serial_LIB}
 )
-add_dependencies(${PROJECT_NAME}_uart_comms_node
+add_dependencies(${PROJECT_NAME}_node
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
 )
-
-## C++ libraries ##
-
-#############
-## Testing ##
-#############
-
-if(CATKIN_ENABLE_TESTING)
-  find_package(rostest REQUIRED)
-
-  ###### Enable Gmock ##########
-  set(gmock_SOURCE_DIR /usr/src/gmock)
-  set(gtest_SOURCE_DIR /usr/src/gtest)
-  set(gtest_INCLUDE_DIR /usr/include/gtest)
-  include_directories(
-    ${gmock_SOURCE_DIR}/include
-    ${gmock_SOURCE_DIR}
-    ${gmock_SOURCE_DIR}/gtest/include
-    ${gmock_SOURCE_DIR}/gtest
-    ${gtest_INCLUDE_DIR}
-    ${gtest_SOURCE_DIR}
-    ${gtest_SOURCE_DIR}/src
-  )
-
-  # GMock + Catkin need help: https://answers.ros.org/question/199680/catkin-doesnt-play-nice-with-google-mock/
-  # TODO(build_time): Only build gmock if not already built
-  add_library(${PROJECT_NAME}_gmock
-    ${gmock_SOURCE_DIR}/src/gmock-all.cc
-    ${gtest_SOURCE_DIR}/src/gtest-all.cc
-  )
-  target_link_libraries(${PROJECT_NAME}_gmock pthread)
-  install(
-    TARGETS
-      ${PROJECT_NAME}_gmock
-    LIBRARY DESTINATION
-      ${CATKIN_PACKAGE_LIB_DESTINATION}
-    RUNTIME DESTINATION
-      ${CATKIN_PACKAGE_BIN_DESTINATION}
-  )
-  # Replace catkin variable
-  set(GTEST_LIBRARIES ${PROJECT_NAME}_gmock)
-  ###### END Enable Gmock ##########
-
-  add_rostest_gtest(pcb_bridge_manager_test test/pcb_bridge_manager_test.test 
-    test/pcb_bridge_manager_test.cpp
-    src/PCBBridgeManager.cpp)
-  target_link_libraries(pcb_bridge_manager_test 
-    ${catkin_LIBRARIES}
-    ${GTEST_LIBRARIES}
-    ${serial_LIB}) 
-
-endif()
 
 #############
 ## Install ##
 #############
 
+# all install targets should use catkin DESTINATION variables
+# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
+
+## Mark executable scripts (Python etc.) for installation
+## in contrast to setup.py, you can choose the destination
+# catkin_install_python(PROGRAMS
+#   scripts/my_python_script
+#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )
+
+## Mark executables for installation
+## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
+# install(TARGETS ${PROJECT_NAME}_node
+#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )
+
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
  install(TARGETS 
-    ${PROJECT_NAME}_uart_comms_node 
-    
-    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  ${PROJECT_NAME}_node
+
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
  )
+
+#############
+## Testing ##
+#############
+
+## Add gtest based cpp test target and link libraries
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_noah_drivers.cpp)
+# if(TARGET ${PROJECT_NAME}-test)
+#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+# endif()
+
+## Add folders to be run by python nosetests
+# catkin_add_nosetests(test)
