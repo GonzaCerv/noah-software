@@ -10,10 +10,7 @@
  */
 
 // Standard library
-#include <linux/reboot.h>
-#include <sys/reboot.h>
-#include <unistd.h>
-
+#include <cmath>
 #include <memory>
 
 // ROS libraries
@@ -21,283 +18,173 @@
 // Noah libraries
 #include "noah_drivers/PCBBridgeManager.hpp"
 
-static constexpr const char *LEFT_MOTOR_TICK_NAME{"motor_left_tick"};
-static constexpr const char *RIGHT_MOTOR_TICK_NAME{"motor_right_tick"};
-static constexpr const char *LEFT_MOTOR_PWM_NAME{"motor_left_pwm"};
-static constexpr const char *RIGHT_MOTOR_PWM_NAME{"motor_right_pwm"};
-static constexpr const char *OFF_SERVICE_NAME{"smps_off"};
+using noah::ros::DataPackage;
+using noah::ros::DataPackageBuilder;
+using noah::ros::EncoderRequest;
+using noah::ros::GetDataPackage;
+using noah::ros::Side;
 
 namespace noah_drivers {
 PCBBridgeManager::PCBBridgeManager(ros::NodeHandle &nh, const std::string &port_name,
-                                   const std::chrono::milliseconds &check_interval)
-    : nh_{nh}, port_name_{port_name}, check_interval_{check_interval} {
-    if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {
+                                   const std::chrono::milliseconds &check_interval, const double min_speed,
+                                   const double max_speed)
+    : nh_{nh}, port_name_{port_name}, check_interval_{check_interval}, min_speed_{min_speed}, max_speed_{max_speed} {
+    // Set log level to Debug.
+    if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn)) {
         ros::console::notifyLoggerLevelsChanged();
     }
-
-    nh_.getParam("MIN_SPEED_METER_SEC", min_speed_);
-    std::cerr << "min speed: " << std::to_string(min_speed_) << std::endl;
-    nh_.getParam("MAX_SPEED_METER_SEC", max_speed_);
     ROS_WARN_STREAM_NAMED("DriverNode", "update interval (ms): " << std::to_string(check_interval_.count()));
     ROS_WARN_STREAM_NAMED("DriverNode", "UART port name: " << port_name_);
 
-    // Stop the node if it isn't able to start the Uart connection.
-    try {
-        serial_port_.Open(port_name_);
-    } catch (...) {
-        ROS_ERROR_STREAM_NAMED(PACKAGE_NAME_, "Unable to open serial port");
-        ros::shutdown();
-    }
-    // Set the baud rate of the serial port.
-    serial_port_.SetBaudRate(LibSerial::BaudRate::BAUD_115200);
-    // Set the number of data bits.
-    serial_port_.SetCharacterSize(LibSerial::CharacterSize::CHAR_SIZE_8);
-    // Turn off hardware flow control.
-    serial_port_.SetFlowControl(LibSerial::FlowControl::FLOW_CONTROL_NONE);
-    // Disable parity.
-    serial_port_.SetParity(LibSerial::Parity::PARITY_NONE);
-    // Set the number of stop bits.
-    serial_port_.SetStopBits(LibSerial::StopBits::STOP_BITS_1);
-    // Flush all the buffers.
-    serial_port_.FlushInputBuffer();
-    serial_port_.FlushOutputBuffer();
+    serial_port_ = std::make_unique<serial::Serial>(port_name_, 115200,
+                                                    serial::Timeout::simpleTimeout(check_interval_.count()));
+
+    // Variables.
+    halt_ = false;
+    request_target_speed_l_ = false;
+    request_target_speed_r_ = false;
+    target_speed_l_ = 0.0f;
+    target_speed_r_ = 0.0f;
 
     // Publishers.
-    left_motor_tick_pub_ = nh_.advertise<std_msgs::Int16>(LEFT_MOTOR_TICK_NAME, QUEUE_SIZE);
-    right_motor_tick_pub_ = nh_.advertise<std_msgs::Int16>(RIGHT_MOTOR_TICK_NAME, QUEUE_SIZE);
+    left_motor_tick_pub_ = nh_.advertise<std_msgs::Int16>(TOPIC_LEFT_MOTOR_TICK_NAME, QUEUE_SIZE);
+    right_motor_tick_pub_ = nh_.advertise<std_msgs::Int16>(TOPIC_RIGHT_MOTOR_TICK_NAME, QUEUE_SIZE);
 
     // Subscribers.
-    left_motor_pwm_sub_ = nh_.subscribe(LEFT_MOTOR_PWM_NAME, QUEUE_SIZE, &PCBBridgeManager::motorLeftPWMCallback, this);
-    right_motor_pwm_sub_ =
-        nh_.subscribe(RIGHT_MOTOR_PWM_NAME, QUEUE_SIZE, &PCBBridgeManager::motorRightPWMCallback, this);
-
-    // Services.
-    off_srv_ = nh_.advertiseService(OFF_SERVICE_NAME, &PCBBridgeManager::offServiceCallback, this);
+    left_motor_speed_sub_ =
+        nh_.subscribe(TOPIC_LEFT_MOTOR_SPEED_NAME, QUEUE_SIZE, &PCBBridgeManager::motorLeftSpeedCallback, this);
+    right_motor_speed_sub_ =
+        nh_.subscribe(TOPIC_RIGHT_MOTOR_SPEED_NAME, QUEUE_SIZE, &PCBBridgeManager::motorRightSpeedCallback, this);
 
     // Threads.
-    process_packages_thread_ = std::make_shared<std::thread>(std::bind(&PCBBridgeManager::processPackagesThread,
-    this));
-    incomming_packages_thread_ =
-        std::make_shared<std::thread>(std::bind(&PCBBridgeManager::incommingPackagesThread, this));
-    outgoing_packages_thread_ =
-        std::make_shared<std::thread>(std::bind(&PCBBridgeManager::outgoingPackagesThread, this));
-
-    // Start all the threads.
-    process_packages_thread_->detach();
-    incomming_packages_thread_->detach();
-    outgoing_packages_thread_->detach();
+    communication_thread_ = std::make_shared<std::thread>(std::bind(&PCBBridgeManager::communicationThread, this));
+    communication_thread_->detach();
 }
 
 PCBBridgeManager::~PCBBridgeManager() {
-    std::cerr << "destructor called" << std::endl;
+    // Shutdown all topics.
     left_motor_tick_pub_.shutdown();
     right_motor_tick_pub_.shutdown();
+
+    // Notify threads to stop its execution.
     halt_ = true;
     cv_.notify_all();
-    std::cerr << "destroyerCalled" << std::endl;
-    process_packages_thread_->join();
-    incomming_packages_thread_->join();
-    outgoing_packages_thread_->join();
-    serial_port_.Close();
+    communication_thread_->join();
+
+    // Close serial port.
+    serial_port_->close();
 }
 
-void PCBBridgeManager::processPackagesThread() {
+void PCBBridgeManager::communicationThread() {
     std::unique_lock<std::mutex> lock(mutex_);
-    std::vector<uint8_t> incomming_data;
+
     while (!halt_) {
-        if (!incomming_packages_.empty()) {
-            auto current_package = incomming_packages_.front();
-
-            switch (current_package.getCommand()) {
-                case UartCommand::ECHO_CMD:
-                    outgoing_packages_.emplace_back(UartPackage(UartCommand::ECHO_CMD));
-                    break;
-                case UartCommand::OFF:
-                    reboot(LINUX_REBOOT_CMD_POWER_OFF);
-                    break;
-                case UartCommand::LEFT_ENCODER_TICKS: {
-                    std_msgs::Int16 left_ticks;
-                    left_ticks.data = static_cast<int16_t>((current_package[0] << 8) | (current_package[1] & 0xff));
-                    left_motor_tick_pub_.publish(left_ticks);
-
-                    // Create a new request for the next iteration.
-                    std::vector<uint8_t> parameters(0x00, 0x00);
-                    UartPackage package(UartCommand::LEFT_ENCODER_TICKS, parameters);
-                    outgoing_packages_.emplace_back(package);
-                    break;
-                }
-                case UartCommand::RIGHT_ENCODER_TICKS: {
-                    std_msgs::Int16 right_ticks;
-                    right_ticks.data = static_cast<int16_t>((current_package[0] << 8) | (current_package[1] & 0xff));
-                    right_motor_tick_pub_.publish(right_ticks);
-
-                    // Create a new request for the next iteration.
-                    std::vector<uint8_t> parameters(0x00, 0x00);
-                    UartPackage package(UartCommand::RIGHT_ENCODER_TICKS, parameters);
-                    outgoing_packages_.emplace_back(package);
-                    break;
-                }
-                default: {
-                    outgoing_packages_.emplace_back(UartPackage(UartCommand::ERROR));
-                    break;
-                }
-            }
-            incomming_packages_.pop_front();
-        }
-        cv_.wait_for(lock, check_interval_);
-    };
-}
-
-void PCBBridgeManager::outgoingPackagesThread() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    while (!halt_) {
-        if (!outgoing_packages_.empty()) {
-            auto next_package = outgoing_packages_.front();
-            sendPackage(next_package);
-            outgoing_packages_.pop_front();
-        }
-        else{
-            // If there is not data available to send, update 
-            // the current status of the robot
-            std::vector<uint8_t> parameters;
-            parameters.emplace_back(0x00);
-            parameters.emplace_back(0x00);
-            UartPackage left_tick_package(UartCommand::LEFT_ENCODER_TICKS, parameters);
-            outgoing_packages_.emplace_back(left_tick_package);
-            UartPackage right_tick_package(UartCommand::RIGHT_ENCODER_TICKS, parameters);
-            outgoing_packages_.emplace_back(right_tick_package);
-        }
-        cv_.wait_for(lock, check_interval_);
-    }
-}
-
-void PCBBridgeManager::incommingPackagesThread() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    std::vector<uint8_t> incomming_data;
-    while (!halt_) {
-        if (serial_port_.IsDataAvailable()) {
+        // Checks if there is an incomming package to process
+        if (serial_port_->available() != 0) {
+            uint8_t incomming_data[BUFFER_SIZE];
             try {
-                serial_port_.Read(incomming_data, 0, static_cast<std::size_t>(check_interval_.count()));
+                // Get all data available to read. Returns immediately
+                serial_port_->read(&incomming_data[0], BUFFER_SIZE);
             } catch (...) {
+                throw std::runtime_error("Error while trying to read from serial port.");
             }
-            // Append the packages found into the current packages list.
-            if (!incomming_data.empty()) {
-                incomming_packages_.splice(incomming_packages_.end(), decodePackage(incomming_data));
-            }
-        } 
+            // Decode the package and publish the incomming information to its respective topic/service
+            decodePackage(&incomming_data[0]);
+        }
+
+        flatbuffers::FlatBufferBuilder builder;
+        // Force to send values even if they match with the default value.
+        builder.ForceDefaults(true);
+        DataPackageBuilder request_builder(builder);
+        // Add the encoder to request information.
+        // The encoder request is sent automatically on each iteration.
+        auto encoder_response = EncoderRequest(Side::Side_All);
+        request_builder.add_encoderRequest(&encoder_response);
+
+        // Checks if there is a new request for left target speed.
+        if (request_target_speed_l_) {
+            request_target_speed_l_ = false;
+            request_builder.add_targetSpeedLRequest(target_speed_l_);
+        }
+
+        // Checks if there is a new request for right target speed.
+        if (request_target_speed_r_) {
+            request_target_speed_r_ = false;
+            request_builder.add_targetSpeedRRequest(target_speed_r_);
+        }
+
+        // Send the request
+        auto request = request_builder.Finish();
+        builder.Finish(request);
+        uint8_t *request_buffer = builder.GetBufferPointer();
+        uint16_t size = builder.GetSize();
+        serial_port_->write(request_buffer, size);
+
+        // Wait for the next iteration.
         cv_.wait_for(lock, check_interval_);
     }
 }
 
-bool PCBBridgeManager::offServiceCallback(std_srvs::Trigger::Request &, std_srvs::Trigger::Response &response) {
-    ROS_WARN_STREAM_NAMED("DriverNode", "Turning off");
-    response.success = true;
-    response.message = "Turning off";
-    system("poweroff");
-    return true;
+void PCBBridgeManager::motorLeftSpeedCallback(const std_msgs::Float32 &msg) {
+    target_speed_l_ = msg.data;
+
+    // Checks the possible limits of the motors.
+    if (max_speed_ < target_speed_l_) {
+        ROS_INFO_STREAM_NAMED("PCBBridgeManager",
+                              "Target speed for left motor is higher than allowed, setting max speed instead. ");
+        target_speed_l_ = max_speed_;
+    } else if ((min_speed_ > fabs(target_speed_l_)) && (target_speed_l_ != 0.0f)) {
+        ROS_INFO_STREAM_NAMED("PCBBridgeManager",
+                              "Target speed for left motor is lower than allowed, setting motor to 0. ");
+        target_speed_l_ = 0.0f;
+    } else if (max_speed_ < fabs(target_speed_l_)) {
+        ROS_INFO_STREAM_NAMED("PCBBridgeManager",
+                              "Target speed for left motor is higher than allowed, setting max speed instead. ");
+        target_speed_l_ = -max_speed_;
+    }
+
+    request_target_speed_l_ = true;
 }
 
-void PCBBridgeManager::motorLeftPWMCallback(const std_msgs::Float32 &msg) {
-    auto new_speed = -msg.data;
-    if (min_speed_ > fabs(new_speed)) {
-        current_duty_l_ = 0.0;
-    } else if (max_speed_ <new_speed) {
-        current_duty_l_ = max_speed_;
-    } else if (max_speed_ < fabs(new_speed)) {
-        current_duty_l_ = -max_speed_;
-    } else {
-        current_duty_l_ = new_speed;
+void PCBBridgeManager::motorRightSpeedCallback(const std_msgs::Float32 &msg) {
+    target_speed_r_ = msg.data;
+
+    // Checks the possible limits of the motors.
+    if (max_speed_ < target_speed_r_) {
+        ROS_INFO_STREAM_NAMED("PCBBridgeManager",
+                              "Target speed for left motor is higher than allowed, setting max speed instead. ");
+        target_speed_r_ = max_speed_;
+    } else if ((min_speed_ > fabs(target_speed_r_)) && (target_speed_r_ != 0.0f)) {
+        ROS_INFO_STREAM_NAMED("PCBBridgeManager",
+                              "Target speed for left motor is lower than allowed, setting motor to 0. ");
+        target_speed_r_ = 0.0f;
+    } else if (max_speed_ < fabs(target_speed_r_)) {
+        ROS_INFO_STREAM_NAMED("PCBBridgeManager",
+                              "Target speed for left motor is higher than allowed, setting max speed instead. ");
+        target_speed_r_ = -max_speed_;
     }
-    std::vector<uint8_t> parameters;
 
-    floatAsBytes.fval = current_duty_l_;
-    parameters.emplace_back(floatAsBytes.bval[3]);
-    parameters.emplace_back(floatAsBytes.bval[2]);
-    parameters.emplace_back(floatAsBytes.bval[1]);
-    parameters.emplace_back(floatAsBytes.bval[0]);
-
-    UartPackage package(UartCommand::LEFT_SPEED, parameters);
-    outgoing_packages_.emplace_back(package);
+    request_target_speed_r_ = true;
 }
 
-void PCBBridgeManager::motorRightPWMCallback(const std_msgs::Float32 &msg) {
-    if (min_speed_ > fabs(msg.data)) {
-        current_duty_r_ = 0.0;
-    } else if (max_speed_ < msg.data) {
-        current_duty_r_ = max_speed_;
-    } else if (max_speed_ < fabs(msg.data)) {
-        current_duty_r_ = -max_speed_;
-    } else {
-        current_duty_r_ = msg.data;
+void PCBBridgeManager::decodePackage(uint8_t *new_data) {
+    flatbuffers::FlatBufferBuilder builder;
+
+    // Deserialize the incoming package.
+    auto incomming_package = GetDataPackage(new_data);
+
+    // Process response for encoders.
+    if (flatbuffers::IsFieldPresent(incomming_package, DataPackage::VT_ENCODERRESPONSE)) {
+        auto encoder_response = incomming_package->encoderResponse();
+        // Publish in ROS the ticks
+        std_msgs::Int16 ticks_l;
+        ticks_l.data = encoder_response->ticks_l();
+        left_motor_tick_pub_.publish(ticks_l);
+
+        std_msgs::Int16 ticks_r;
+        ticks_r.data = encoder_response->ticks_r();
+        right_motor_tick_pub_.publish(ticks_r);
     }
-    std::vector<uint8_t> parameters;
-
-    floatAsBytes.fval = current_duty_r_;
-    parameters.emplace_back(floatAsBytes.bval[3]);
-    parameters.emplace_back(floatAsBytes.bval[2]);
-    parameters.emplace_back(floatAsBytes.bval[1]);
-    parameters.emplace_back(floatAsBytes.bval[0]);
-
-    UartPackage package(UartCommand::RIGHT_SPEED, parameters);
-    outgoing_packages_.emplace_back(package);
-}
-
-std::list<UartPackage> PCBBridgeManager::decodePackage(const std::vector<uint8_t> &new_data) {
-    auto result = std::list<UartPackage>();
-    // Check if there are new bytes.
-    if (new_data.empty()) {
-        return result;
-    }
-
-    auto it = new_data.begin();
-    UartPackage current_package;
-
-    while (it != new_data.end()) {
-        // Search a valid start package to start processing.
-        // If there is no start package, then iterate and exit the while.
-        it = std::find(it, new_data.end(), UartPackage::startPackage());
-        if (it == new_data.end()) continue;
-
-        // Get the command and checks if it is a valid command. If that's not the case,
-        // jump and search the next package.
-        ++it;
-        auto command = UartPackage::valueToCommand(*it);
-        if (command == UartCommand::ERROR) continue;
-        // Get the params.
-        ++it;
-        auto param_count = (UartPackage::commandToValue(command) & 0xF0) >> 4;
-        std::vector<uint8_t> params;
-        while ((param_count != 0) && (it != new_data.end())) {
-            params.emplace_back(*it);
-            ++it;
-            --param_count;
-        }
-        // If there is no stopPackage at the end of the package, it searches the
-        // next package.
-        if (*it != UartPackage::stopPackage()) {
-            continue;
-        }
-        current_package.setCommand(command);
-        current_package.setData(params);
-        result.emplace_back(current_package);
-    }
-    return result;
-}
-
-bool PCBBridgeManager::sendPackage(const UartPackage &package) {
-    bool result = false;
-    if (serial_port_.IsOpen()) {
-        std::vector<uint8_t> buffer;
-        buffer.emplace_back(UartPackage::startPackage());
-        buffer.emplace_back(UartPackage::commandToValue(package.getCommand()));
-        for (auto param : package.getData()) {
-            buffer.emplace_back(param);
-        }
-        buffer.emplace_back(UartPackage::stopPackage());
-        serial_port_.Write(buffer);
-        result = true;
-    }
-    return result;
 }
 
 }  // namespace noah_drivers

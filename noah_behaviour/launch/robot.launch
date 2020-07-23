@@ -6,16 +6,11 @@
     <include file="$(find noah_drivers)/launch/drivers_node.launch"/>
 
     <node pkg="differential_drive" type="twist_to_motors.py" name="twist_to_motors" output="screen">
-        <remap from="lwheel_vtarget" to="/motor_left_pwm"/>
-        <remap from="rwheel_vtarget" to="/motor_right_pwm"/>
+        <remap from="lwheel_vtarget" to="/motor_left_speed"/>
+        <remap from="rwheel_vtarget" to="/motor_right_speed"/>
+        <remap from="twist" to="cmd_vel"/>
         <rosparam param="base_width">0.16</rosparam>
         <rosparam param="rate">25</rosparam>
-    </node>
-
-    <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
-        <remap from="cmd_vel" to="/twist"/>
-        <rosparam param="speed">0.3</rosparam>
-        <rosparam param="turn">0.8</rosparam>
     </node>
 
 </launch>

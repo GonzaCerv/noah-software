@@ -9,7 +9,6 @@ add_compile_options(-std=c++14  -Werror -Wall -Wextra -Wno-unused-parameter -Wno
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
-  noah_msgs
   roscpp
   rospy
   std_msgs
