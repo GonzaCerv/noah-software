@@ -34,4 +34,4 @@ class DriversNode {
     ros::Publisher chatter_pub;
     std::unique_ptr<PCBBridgeManager> pcb_bridge_manager_;
 };
-} // namespace noah_drivers
+}  // namespace noah_drivers
