@@ -36,7 +36,7 @@ PCBBridgeManager::PCBBridgeManager(ros::NodeHandle &nh, const std::string &port_
     ROS_WARN_STREAM_NAMED("DriverNode", "update interval (ms): " << std::to_string(check_interval_.count()));
     ROS_WARN_STREAM_NAMED("DriverNode", "UART port name: " << port_name_);
 
-    serial_port_ = std::make_unique<serial::Serial>("/dev/ttyACM0", 115200,
+    serial_port_ = std::make_unique<serial::Serial>(port_name_, 115200,
                                                     serial::Timeout::simpleTimeout(check_interval_.count()));
 
     // Variables.
