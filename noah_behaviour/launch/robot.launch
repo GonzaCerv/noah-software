@@ -8,6 +8,7 @@
     <node pkg="differential_drive" type="twist_to_motors.py" name="twist_to_motors" output="screen">
         <remap from="lwheel_vtarget" to="/motor_left_speed"/>
         <remap from="rwheel_vtarget" to="/motor_right_speed"/>
+        <remap from="twist" to="cmd_vel"/>
         <rosparam param="base_width">0.16</rosparam>
         <rosparam param="rate">25</rosparam>
     </node>

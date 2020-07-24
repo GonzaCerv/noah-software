@@ -4,6 +4,5 @@
 
     <!-- Spawn rqt_steering -->
     <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="steering">
-        <rosparam param="topic">/twist</rosparam>
     </node>
 </launch>
