@@ -5,4 +5,7 @@
     <!-- Spawn rqt_steering -->
     <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="steering">
     </node>
+
+    <node name="image_view" pkg="rqt_image_view" type="rqt_image_view" respawn="false" output="screen">
+    </node>
 </launch>
