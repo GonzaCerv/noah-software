@@ -46,16 +46,12 @@ This repo contains some nodes that allows to teleop the robot from a PC. Just co
 
 ## Clone the repo
 
-- Install LFS in your machine:
+Remember that this repo uses submodules
   
   ```bash
-  git lfs install
-  ```
-
-- clone the repo:
-  
-  ```bash
-  git clone git@github.com:GonzaCerv/noah-hardware.git
+  git clone https://github.com/GonzaCerv/noah-software
+  git submodule init
+  git submodule update
   ```
 
 ## Authors
